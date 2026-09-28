@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>程式架構建議</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1f2a44;
+    --ink-soft: #55607a;
+    --line: #d9dee8;
+    --bg: #f3f5f9;
+    --card: #ffffff;
+    --accent: #0f766e;
+    --accent-soft: #e6f4f2;
+    --warn: #9a4a07;
+    --warn-bg: #fdf1dc;
+    --info: #1e4fb8;
+    --info-bg: #ebf1fd;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", sans-serif;
+    color: var(--ink);
+    background: var(--bg);
+    line-height: 1.6;
+    font-size: 16px;
+  }
+  header {
+    background: var(--ink);
+    color: #fff;
+    padding: 28px 20px 24px;
+  }
+  header .wrap { max-width: 1120px; margin: 0 auto; }
+  header h1 { margin: 0 0 6px; font-size: 26px; font-weight: 700; }
+  header p { margin: 0; color: #c9d1e3; font-size: 15px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+  .presets button {
+    font: inherit; font-size: 14px;
+    padding: 7px 14px;
+    border-radius: 6px;
+    border: 1px solid #6c7896;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+  }
+  .presets button:hover { background: rgba(255,255,255,.1); }
+  .presets button:focus-visible, .seg button:focus-visible { outline: 3px solid #5eead4; outline-offset: 2px; }
+
+  main {
+    max-width: 1120px;
+    margin: 0 auto;
+    padding: 24px 20px 48px;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 440px);
+    gap: 24px;
+    align-items: start;
+  }
+  section.group {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px 8px;
+    margin-bottom: 16px;
+  }
+  section.group h2 { margin: 0 0 8px; font-size: 18px; }
+  .q {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    padding: 12px 0;
+    border-top: 1px solid var(--line);
+  }
+  .q:first-of-type { border-top: none; }
+  .q-text { font-size: 15px; }
+  .q-id { font-weight: 700; color: var(--accent); margin-right: 6px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; flex-shrink: 0; }
+  .seg button {
+    font: inherit; font-size: 14px;
+    padding: 6px 14px;
+    border: none;
+    background: #fff;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .seg button + button { border-left: 1px solid var(--line); }
+  .seg button[aria-pressed="true"].yes { background: var(--accent); color: #fff; }
+  .seg button[aria-pressed="true"].no { background: var(--ink); color: #fff; }
+  .seg button[aria-pressed="true"].unsure { background: #b45309; color: #fff; }
+  .seg button[aria-pressed="false"]:hover { background: #eef1f6; }
+  .q-assume { display: block; font-size: 13px; color: #b45309; margin-top: 2px; }
+  .pending { font-size: 14px; padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; background: #fff8ec; border: 1px solid #f3d19c; }
+  .pending b { color: #9a4a07; }
+  .pending ul { margin-top: 4px; }
+  .pending li { font-size: 14px; margin-bottom: 2px; }
+
+  aside {
+    position: sticky;
+    top: 16px;
+    background: var(--card);
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+    padding: 20px;
+  }
+  aside h2 { margin: 0 0 12px; font-size: 20px; }
+  aside h3 { margin: 20px 0 8px; font-size: 16px; }
+  .arch { width: 100%; border-collapse: collapse; font-size: 15px; }
+  .arch th, .arch td { text-align: left; padding: 9px 0; border-top: 1px solid var(--line); vertical-align: top; }
+  .arch th { width: 92px; color: var(--ink-soft); font-weight: 500; }
+  .arch td { font-weight: 700; }
+  ul { margin: 0; padding-left: 20px; }
+  li { margin-bottom: 6px; font-size: 15px; }
+  .reason { font-size: 14px; margin: 0 0 8px; }
+  .reason b { color: var(--accent); }
+  .msg { font-size: 14px; padding: 10px 12px; border-radius: 6px; margin-bottom: 8px; }
+  .msg.warn { background: var(--warn-bg); color: var(--warn); border-left: 4px solid #d97706; }
+  .msg.info { background: var(--info-bg); color: var(--info); border-left: 4px solid #3b6fd8; }
+  footer { font-size: 13px; color: var(--ink-soft); margin-top: 16px; }
+
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; }
+    aside { position: static; }
+  }
+  @media (max-width: 520px) {
+    .q { flex-direction: column; align-items: flex-start; gap: 8px; }
+    header h1 { font-size: 22px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <h1>程式架構建議</h1>
+    <p>回答下列問題，依規則建議資料放置方式、執行位置、介面與輸出方式。</p>
+    <div class="presets">
+      <button type="button" data-preset="ex1">載入例子一：訂單流失風險</button>
+      <button type="button" data-preset="ex2">載入例子二：報價系統</button>
+      <button type="button" data-preset="clear">全部清除</button>
+    </div>
+  </div>
+</header>
+
+<main>
+  <div id="questions"></div>
+
+  <aside aria-live="polite">
+    <h2>建議架構</h2>
+    <table class="arch" id="arch"></table>
+
+    <h3>傳送方式</h3>
+    <ul id="delivery"></ul>
+
+    <h3>為什麼這樣建議</h3>
+    <div id="reasons"></div>
+
+    <div id="pendingBlock">
+      <h3>待釐清的問題</h3>
+      <div id="pending"></div>
+    </div>
+
+    <div id="warnBlock">
+      <h3>衝突警示</h3>
+      <div id="warnings"></div>
+    </div>
+
+    <div id="noteBlock">
+      <h3>技術與資安提醒</h3>
+      <div id="notes"></div>
+    </div>
+
+    <footer>本工具的建議來自寫在程式中的固定規則，實際選擇仍需依需求、資安與技術條件判斷。</footer>
+  </aside>
+</main>
+
+<script>
+// ============================================================
+// 一、問題（hard coding：直接寫在程式中）
+// ============================================================
+const QUESTIONS = [
+  { group: "A 組：資料特性", items: {
+    A1: "資料會定期更新（每月一次以上）嗎？",
+    A2: "更新資料的人，不是寫程式的人嗎？",
+    A3: "資料超過 30 筆，或未來會持續增加嗎？",
+    A4: "多人需要看到同一份最新資料嗎？"
+  }},
+  { group: "B 組：資安", items: {
+    B1: "資料含個資、成本、薪資等機密嗎？",
+    B2: "公司規定資料不能放在外部雲端服務嗎？"
+  }},
+  { group: "C 組：使用情境與輸出", items: {
+    C1: "除了你自己，還有其他人要使用嗎？",
+    C2: "使用者會在不同地點或用手機、平板操作嗎？",
+    C3: "使用者的電腦沒有安裝 Python，或不熟悉電腦操作嗎？",
+    C4: "需要互動圖表或可篩選的表格嗎？",
+    C5: "分析結果需要轉成 PDF 或送印表機印出嗎？",
+    C6: "分析結果需要在原本的 Excel 新增一個整理後的頁籤嗎？",
+    C7: "分析結果需要用 email 寄給客戶嗎？",
+    C8: "分析結果需要用 LINE（業務個人帳號）傳給客戶嗎？"
+  }}
+];
+
+const ALL_IDS = QUESTIONS.flatMap(g => Object.keys(g.items));
+
+// 回答「不確定」時的暫時假設（hard coding）
+// 原則：資料題選較有彈性的做法、資安題從嚴、使用情境先求單純、輸出需求先不做
+const ASSUME = {
+  A1: true, A2: true, A3: true, A4: false,
+  B1: true, B2: true,
+  C1: true, C2: false, C3: true, C4: false,
+  C5: false, C6: false, C7: false, C8: false
+};
+
+// 講義中的兩個範例（預先填好的答案，沒列出的都是「否」）
+const PRESETS = {
+  ex1: ["A1", "A3", "B1", "C1", "C3", "C6"],
+  ex2: ["A1", "A2", "A3", "A4", "C1", "C2", "C5", "C8"],
+  clear: []
+};
+
+// ============================================================
+// 二、判斷規則（hard coding：用 if / else 寫出每一條規則）
+// ============================================================
+function recommend(a) {
+  const r = { reasons: {}, warnings: [], notes: [] };
+
+  // 規則 2：資料方式
+  const dataExternal = a.A1 || a.A2 || a.A3;
+  if (dataExternal) {
+    r.data = "資料放在外部檔案（Excel）";
+    r.reasons.data = "A1～A3 至少一題為「是」：資料會變動、由別人更新或筆數多，應與程式分開。";
+  } else {
+    r.data = "資料可以寫在程式中";
+    r.reasons.data = "A1～A3 皆為「否」：資料少且幾乎不變，寫在程式中最簡單。";
+  }
+
+  // 規則 1 與 3：執行位置（B2 為強制限制，最優先）
+  if (a.B2) {
+    r.run = "本機執行";
+    r.reasons.run = "B2 為「是」：公司規定資料不能上外部雲端，一律本機執行。";
+    if (a.C2) {
+      r.warnings.push("需求與資安衝突（B2、C2）：使用者要在外面或用手機操作，但資料不能上雲端。可考慮公司內部伺服器、資料去識別化後再上雲端，或重新檢視需求。");
+    }
+  } else if (a.C2) {
+    r.run = "雲端部署（例如 Vercel、Streamlit Community Cloud）";
+    r.reasons.run = "C2 為「是」：使用者在不同地點或用手機操作，需要一個網址。";
+  } else {
+    r.run = "本機執行";
+    r.reasons.run = "C2 為「否」：不需要在外面或用手機使用，本機執行即可。";
+  }
+  const onCloud = r.run.startsWith("雲端");
+
+  // 資料放置位置
+  if (!dataExternal) {
+    r.dataPlace = "資料寫在程式中，不需另外存放";
+  } else if (a.B2) {
+    r.dataPlace = "本機" + (a.A4 ? "或公司內部共用磁碟" : "");
+    if (a.A4) r.warnings.push("多人共用資料但不能上雲端（A4、B2）：請使用公司內部共用磁碟。");
+  } else if (a.A4 || onCloud) {
+    r.dataPlace = "雲端（例如 Google Drive，設定共用）";
+    if (onCloud && !a.A4) r.notes.push("技術限制：雲端程式讀不到你電腦裡的檔案，所以資料也必須放雲端。");
+  } else {
+    r.dataPlace = "本機";
+  }
+
+  // 資料放雲端或程式在雲端時，檢查機密性
+  if (a.B1 && (onCloud || r.dataPlace.includes("雲端"))) {
+    r.warnings.push("機密資料與雲端（B1）：雲端只放非機密資料（例如對外售價），或需加上登入驗證。Google Drive 設為「知道連結的任何人」後，拿到連結的人都看得到。");
+  }
+
+  // 規則 4：介面
+  if (onCloud) {
+    r.ui = "瀏覽器介面";
+    r.reasons.ui = "雲端部署只能使用瀏覽器介面；自製 UI（Tkinter）無法變成網頁。";
+  } else if (a.C4) {
+    r.ui = "瀏覽器介面，本機執行（Streamlit 本機版）";
+    r.reasons.ui = "C4 為「是」：Streamlit 內建互動圖表與表格，而且本機執行不需連網。";
+    if (a.C1 && a.C3) {
+      r.warnings.push("介面取捨（C1、C3、C4）：Streamlit 本機版需要對方電腦安裝 Python。可改用 Tkinter 打包成 .exe（圖表較麻煩），或在資安允許時改為雲端部署。");
+    }
+  } else if (a.C1 && a.C3) {
+    r.ui = "自製 UI（Tkinter），打包成 .exe";
+    r.reasons.ui = "C1、C3 為「是」：給不熟電腦或沒裝 Python 的人用，雙擊 .exe 最方便。";
+  } else if (a.C1) {
+    r.ui = "Tkinter 或 Streamlit 本機版皆可";
+    r.reasons.ui = "C1 為「是」：有其他人使用，建議提供介面；對方有 Python 環境，兩者皆可。";
+  } else {
+    r.ui = "可不做介面（直接執行、輸出檔案）";
+    r.reasons.ui = "只有自己使用、不需圖表，直接執行程式最省事。";
+  }
+
+  // 規則 5：輸出方式（依用途分：畫面顯示為基本；PDF 給人閱讀傳遞；新頁籤回到工作流程）
+  const output = [];
+  const outReasons = [];
+  if (r.ui.startsWith("可不做介面")) {
+    output.push("在終端機顯示結果");
+  } else {
+    output.push("畫面直接顯示結果");
+  }
+  outReasons.push("畫面顯示是基本輸出，其他輸出依用途再增加。");
+
+  if (a.C5 || a.C8) {
+    output.push("轉成 PDF（內嵌中文字型，檔名含客戶名稱與日期），可送印表機");
+    outReasons.push("C5 或 C8 為「是」：結果要給人閱讀或傳遞，PDF 格式固定、手機開啟也不跑版。");
+    r.notes.push("技術提醒：產生中文 PDF 要指定中文字型；部署雲端時字型檔要一起上傳。");
+    if (onCloud) r.notes.push("技術限制：雲端程式碰不到使用者的印表機，只能讓使用者下載 PDF 後自行列印。");
+  }
+
+  if (a.C6) {
+    if (!dataExternal) {
+      output.push("另存成新的 Excel 檔");
+      outReasons.push("C6 為「是」，但資料寫在程式中、沒有原始 Excel，因此改為另存新檔。");
+    } else if (onCloud) {
+      output.push("下載一份加上整理頁籤的 Excel 副本");
+      outReasons.push("C6 為「是」：結果要回到工作流程繼續使用；但雲端程式無法寫回共用檔，改為下載副本。");
+      r.notes.push("技術限制：Google Drive 以「檢視者」共用的檔案，程式只能讀不能寫。若一定要寫回，需串接 Google API 並給予編輯權限，門檻與資安風險都會提高。");
+    } else {
+      output.push("在原本的 Excel 新增整理後的頁籤（寫入前自動備份原檔）");
+      outReasons.push("C6 為「是」：結果要回到工作流程繼續使用，放在原檔新頁籤最方便。");
+      r.notes.push("寫回原檔的注意事項：執行前要先關閉該 Excel，否則會出現 PermissionError；寫入前先自動備份原檔；原檔若有圖表或圖片，用 Python 寫入後可能會遺失。");
+    }
+  }
+  r.output = output;
+  r.reasons.output = outReasons.join("");
+
+  // 規則 6：傳送方式
+  const delivery = [];
+  if (a.C7) {
+    delivery.push("Email：建議半自動，程式產生檔案，人工確認收件人後寄出。");
+    r.notes.push("若要程式自動寄信，信箱密碼要存在環境變數或 secrets，不可寫在程式裡或上傳 GitHub。");
+    if (a.B1) r.warnings.push("機密資料以 email 傳送（B1、C7）：務必確認收件人，並考慮檔案加密。");
+  }
+  if (a.C8) {
+    if (a.C2) {
+      delivery.push("LINE：半自動，用手機開網頁產生 PDF，下載後用手機分享功能傳給客戶。");
+    } else {
+      delivery.push("LINE：半自動，在電腦上產生 PDF，拖進 LINE 電腦版的聊天室。");
+    }
+    r.notes.push("個人 LINE 帳號無法由程式自動傳訊息，只能半自動；傳送前請核對檔名上的客戶名稱。");
+    if (a.B2 && a.C2) r.notes.push("因 B2 限制為本機執行，手機傳送不可行，需回到電腦用 LINE 電腦版傳送。");
+  }
+  r.delivery = delivery.length ? delivery : ["不需要傳送給客戶"];
+
+  return r;
+}
+
+// ============================================================
+// 三、畫面
+// ============================================================
+// 每題的答案："yes"、"no" 或 "unsure"
+const answers = Object.fromEntries(ALL_IDS.map(id => [id, "no"]));
+const QTEXT = Object.assign({}, ...QUESTIONS.map(g => g.items));
+const FIELDS = [
+  ["data", "資料方式"], ["dataPlace", "資料放置"], ["run", "執行位置"],
+  ["ui", "使用者介面"], ["output", "輸出方式"], ["delivery", "傳送方式"]
+];
+
+// 把 yes / no / unsure 轉成 true / false（不確定時用暫時假設）
+function effective(ans) {
+  return Object.fromEntries(ALL_IDS.map(id =>
+    [id, ans[id] === "unsure" ? ASSUME[id] : ans[id] === "yes"]));
+}
+
+// 比較兩個建議結果，列出不同的項目
+function diff(r1, r2) {
+  const changes = [];
+  FIELDS.forEach(([k, label]) => {
+    const v1 = Array.isArray(r1[k]) ? r1[k].join("；") : r1[k];
+    const v2 = Array.isArray(r2[k]) ? r2[k].join("；") : r2[k];
+    if (v1 !== v2) changes.push(`${label} → ${v2}`);
+  });
+  return changes;
+}
+
+function renderQuestions() {
+  const box = document.getElementById("questions");
+  box.innerHTML = QUESTIONS.map(g => `
+    <section class="group">
+      <h2>${g.group}</h2>
+      ${Object.entries(g.items).map(([id, text]) => `
+        <div class="q">
+          <div class="q-text"><span class="q-id">${id}</span>${text}
+            <span class="q-assume" id="assume-${id}"></span></div>
+          <div class="seg" role="group" aria-label="${id}">
+            <button type="button" class="yes" data-id="${id}" data-val="yes">是</button>
+            <button type="button" class="no" data-id="${id}" data-val="no">否</button>
+            <button type="button" class="unsure" data-id="${id}" data-val="unsure">不確定</button>
+          </div>
+        </div>`).join("")}
+    </section>`).join("");
+
+  box.addEventListener("click", e => {
+    const btn = e.target.closest("button[data-id]");
+    if (!btn) return;
+    answers[btn.dataset.id] = btn.dataset.val;
+    update();
+  });
+}
+
+function update() {
+  // 更新按鈕狀態與暫時假設的提示
+  document.querySelectorAll(".seg button").forEach(b => {
+    b.setAttribute("aria-pressed", answers[b.dataset.id] === b.dataset.val ? "true" : "false");
+  });
+  ALL_IDS.forEach(id => {
+    document.getElementById("assume-" + id).textContent =
+      answers[id] === "unsure" ? `暫時假設為「${ASSUME[id] ? "是" : "否"}」` : "";
+  });
+
+  const eff = effective(answers);
+  const r = recommend(eff);
+
+  document.getElementById("arch").innerHTML = [
+    ["資料方式", r.data],
+    ["資料放置", r.dataPlace],
+    ["執行位置", r.run],
+    ["使用者介面", r.ui],
+    ["輸出方式", r.output.join("<br>")]
+  ].map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("");
+
+  document.getElementById("delivery").innerHTML = r.delivery.map(d => `<li>${d}</li>`).join("");
+
+  const labels = { data: "資料方式", run: "執行位置", ui: "使用者介面", output: "輸出方式" };
+  document.getElementById("reasons").innerHTML = Object.entries(labels)
+    .map(([k, label]) => `<p class="reason"><b>${label}</b>：${r.reasons[k]}</p>`).join("");
+
+  // 待釐清的問題：把該題改成另一個答案，看建議會不會改變
+  const unsureIds = ALL_IDS.filter(id => answers[id] === "unsure");
+  document.getElementById("pendingBlock").style.display = unsureIds.length ? "" : "none";
+  document.getElementById("pending").innerHTML = unsureIds.map(id => {
+    const flipped = Object.assign({}, eff, { [id]: !eff[id] });
+    const changes = diff(r, recommend(flipped));
+    const other = eff[id] ? "否" : "是";
+    const body = changes.length
+      ? `若確認為「${other}」，建議會改變：<ul>${changes.map(c => `<li>${c}</li>`).join("")}</ul>`
+      : `若確認為「${other}」，主要建議不變，可以晚點再釐清。`;
+    return `<div class="pending"><b>${id}　${QTEXT[id]}</b><br>目前暫時假設為「${eff[id] ? "是" : "否"}」。${body}</div>`;
+  }).join("");
+
+  document.getElementById("warnBlock").style.display = r.warnings.length ? "" : "none";
+  document.getElementById("warnings").innerHTML = r.warnings.map(w => `<div class="msg warn">${w}</div>`).join("");
+
+  document.getElementById("noteBlock").style.display = r.notes.length ? "" : "none";
+  document.getElementById("notes").innerHTML = r.notes.map(n => `<div class="msg info">${n}</div>`).join("");
+}
+
+document.querySelectorAll("[data-preset]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const yes = PRESETS[btn.dataset.preset];
+    ALL_IDS.forEach(id => { answers[id] = yes.includes(id) ? "yes" : "no"; });
+    update();
+  });
+});
+
+renderQuestions();
+update();
+</script>
+</body>
+</html>
