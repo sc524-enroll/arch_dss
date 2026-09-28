@@ -137,10 +137,11 @@
 <header>
   <div class="wrap">
     <h1>程式架構建議</h1>
-    <p>回答下列問題，依規則建議資料放置方式、執行位置、介面與輸出方式。</p>
+    <p>回答下列 15 個問題，依規則建議資料放置方式、執行位置、介面與輸出方式。</p>
     <div class="presets">
       <button type="button" data-preset="ex1">載入例子一：訂單流失風險</button>
       <button type="button" data-preset="ex2">載入例子二：報價系統</button>
+      <button type="button" data-preset="ex3">載入例子三：單字測驗</button>
       <button type="button" data-preset="clear">全部清除</button>
     </div>
   </div>
@@ -201,7 +202,8 @@ const QUESTIONS = [
     C5: "分析結果需要轉成 PDF 或送印表機印出嗎？",
     C6: "分析結果需要在原本的 Excel 新增一個整理後的頁籤嗎？",
     C7: "分析結果需要用 email 寄給客戶嗎？",
-    C8: "分析結果需要用 LINE（業務個人帳號）傳給客戶嗎？"
+    C8: "分析結果需要用 LINE（業務個人帳號）傳給客戶嗎？",
+    C9: "需要記錄使用者的使用情況或成績（例如次數、分數）嗎？"
   }}
 ];
 
@@ -213,13 +215,14 @@ const ASSUME = {
   A1: true, A2: true, A3: true, A4: false,
   B1: true, B2: true,
   C1: true, C2: false, C3: true, C4: false,
-  C5: false, C6: false, C7: false, C8: false
+  C5: false, C6: false, C7: false, C8: false, C9: false
 };
 
 // 講義中的兩個範例（預先填好的答案，沒列出的都是「否」）
 const PRESETS = {
   ex1: ["A1", "A3", "B1", "C1", "C3", "C6"],
   ex2: ["A1", "A2", "A3", "A4", "C1", "C2", "C5", "C8"],
+  ex3: ["A3", "C1", "C2", "C3", "C9"],
   clear: []
 };
 
@@ -229,11 +232,15 @@ const PRESETS = {
 function recommend(a) {
   const r = { reasons: {}, warnings: [], notes: [] };
 
-  // 規則 2：資料方式
-  const dataExternal = a.A1 || a.A2 || a.A3;
+  // 規則 2：資料方式（關鍵在資料會不會變、誰來更新；筆數多本身不是理由）
+  const dataExternal = a.A1 || a.A2;
   if (dataExternal) {
     r.data = "資料放在外部檔案（Excel）";
-    r.reasons.data = "A1～A3 至少一題為「是」：資料會變動、由別人更新或筆數多，應與程式分開。";
+    r.reasons.data = "A1 或 A2 為「是」：資料會變動或由別人更新，應與程式分開，更新資料時不必改程式。";
+  } else if (a.A3) {
+    r.data = "資料可以寫在程式中（資料量大但不常變動）";
+    r.reasons.data = "A1、A2 為「否」但 A3 為「是」：資料多但固定不變、也沒有別人要更新，寫在程式中最單純，載入後不必再讀取外部資料。";
+    r.notes.push("資料量大又寫在程式中的代價：程式檔案較大、第一次開啟較慢；修改任何一筆資料都要改程式並重新部署。");
   } else {
     r.data = "資料可以寫在程式中";
     r.reasons.data = "A1～A3 皆為「否」：資料少且幾乎不變，寫在程式中最簡單。";
@@ -268,8 +275,17 @@ function recommend(a) {
     r.dataPlace = "本機";
   }
 
+  // 資料寫在程式中又部署雲端：網頁原始碼任何人都看得到
+  if (!dataExternal && onCloud) {
+    if (a.B1) {
+      r.warnings.push("機密資料寫在雲端網頁程式中（B1）：網頁原始碼任何人都能查看，機密資料絕對不能寫在程式裡，請改放需登入驗證的資料來源。");
+    } else {
+      r.notes.push("資料寫在網頁程式中，任何人都能從原始碼取得全部資料；公開資料（例如單字表）沒問題。");
+    }
+  }
+
   // 資料放雲端或程式在雲端時，檢查機密性
-  if (a.B1 && (onCloud || r.dataPlace.includes("雲端"))) {
+  if (a.B1 && dataExternal && (onCloud || r.dataPlace.includes("雲端"))) {
     r.warnings.push("機密資料與雲端（B1）：雲端只放非機密資料（例如對外售價），或需加上登入驗證。Google Drive 設為「知道連結的任何人」後，拿到連結的人都看得到。");
   }
 
@@ -344,6 +360,24 @@ function recommend(a) {
     r.notes.push("個人 LINE 帳號無法由程式自動傳訊息，只能半自動；傳送前請核對檔名上的客戶名稱。");
     if (a.B2 && a.C2) r.notes.push("因 B2 限制為本機執行，手機傳送不可行，需回到電腦用 LINE 電腦版傳送。");
   }
+  // 規則 7：使用紀錄（資料流向反過來：使用者的行為回傳給管理者）
+  if (a.C9) {
+    if (onCloud) {
+      r.tracking = "用 GA4 等流量分析工具記錄事件，網址帶使用者代碼辨識身分（例如 ?uid=S001）";
+      r.reasons.tracking = "C9 為「是」且程式在雲端：用現成的分析工具記錄次數、分數等事件，不必自己架資料庫。";
+      r.notes.push("隱私提醒：網址中只放使用者代碼，不可放姓名、電話等個資；代碼與姓名的對照表自己保存。");
+      r.notes.push("GA4 需另外設定自訂維度與自訂指標，報表可用 Looker Studio 製作；若要保存每一題的作答明細，需改用資料庫（例如 Firebase），技術門檻較高。");
+    } else {
+      r.tracking = "寫入本機的紀錄檔（例如 CSV 或 Excel 的紀錄頁籤）";
+      r.reasons.tracking = "C9 為「是」且本機執行：直接把使用紀錄寫進本機檔案最簡單。";
+      r.notes.push("本機紀錄分散在每位使用者的電腦裡，若要彙整所有人的紀錄，需使用公司內部共用磁碟，或改為雲端部署。");
+    }
+    if (a.B1) r.warnings.push("使用紀錄與機密資料（B1、C9）：紀錄中不要包含機密內容或可識別個人的資料。");
+  } else {
+    r.tracking = "不需要";
+    r.reasons.tracking = "C9 為「否」：不需要記錄使用情況。";
+  }
+
   r.delivery = delivery.length ? delivery : ["不需要傳送給客戶"];
 
   return r;
@@ -357,7 +391,7 @@ const answers = Object.fromEntries(ALL_IDS.map(id => [id, "no"]));
 const QTEXT = Object.assign({}, ...QUESTIONS.map(g => g.items));
 const FIELDS = [
   ["data", "資料方式"], ["dataPlace", "資料放置"], ["run", "執行位置"],
-  ["ui", "使用者介面"], ["output", "輸出方式"], ["delivery", "傳送方式"]
+  ["ui", "使用者介面"], ["output", "輸出方式"], ["tracking", "使用紀錄"], ["delivery", "傳送方式"]
 ];
 
 // 把 yes / no / unsure 轉成 true / false（不確定時用暫時假設）
@@ -420,12 +454,13 @@ function update() {
     ["資料放置", r.dataPlace],
     ["執行位置", r.run],
     ["使用者介面", r.ui],
-    ["輸出方式", r.output.join("<br>")]
+    ["輸出方式", r.output.join("<br>")],
+    ["使用紀錄", r.tracking]
   ].map(([k, v]) => `<tr><th>${k}</th><td>${v}</td></tr>`).join("");
 
   document.getElementById("delivery").innerHTML = r.delivery.map(d => `<li>${d}</li>`).join("");
 
-  const labels = { data: "資料方式", run: "執行位置", ui: "使用者介面", output: "輸出方式" };
+  const labels = { data: "資料方式", run: "執行位置", ui: "使用者介面", output: "輸出方式", tracking: "使用紀錄" };
   document.getElementById("reasons").innerHTML = Object.entries(labels)
     .map(([k, label]) => `<p class="reason"><b>${label}</b>：${r.reasons[k]}</p>`).join("");
 
